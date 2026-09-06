@@ -145,17 +145,18 @@ pi install @juicesharp/rpiv-todo
       "headers": { "user-agent": "Go-http-client/2.0" }, //部分要求指定UA,这里可以自定义配置
       "models": [
         {
-          "id": "llama3.1:8b", // 模型名字
-          "name": "Llama 3.1 8B (Local)", // 与上方相同
-          "reasoning": false, // 是否支持思考,不支持就是false,支持就选true
+          "id": "deepseek-v4-flash", // 模型id
+          "name": "DSv4Flash", // 模型昵称,防止id过长显示不方便
+          "reasoning": true, // 是否支持思考,不支持就是false,支持就选true
           "input": ["text"],
           "compat": {
             "supportsReasoningEffort": true,
             "supportsDeveloperRole": false // 部分模型不支持Developer,所以要关闭(可选配置)
           },
-          "contextWindow": 128000, // 自行查询,现在模型都是1M了
-          "maxTokens": 32000, // 自行查询
-          "cost": { "input": 0, "output": 0, "cacheRead": 0, "cacheWrite": 0 }
+          "contextWindow": 1000000, // 自行查询,现在模型都是1M了
+          "maxTokens": 64000, // 自行查询
+          "cost": {"input": 3,"output": 9,"cacheRead": 0.1,"cacheWrite": 0}, // API价格
+          "thinkingLevelMap": { "minimal": null, "low": null, "medium": null, "high": "high", "xhigh": "max" }, // 思考强度
         }
       ]
     }
