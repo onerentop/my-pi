@@ -43,7 +43,8 @@ git clone -b windows https://github.com/onerentop/my-pi.git
 cd my-pi
 New-Item -ItemType Directory -Force "$env:USERPROFILE\.pi\agent", "$env:USERPROFILE\.agents\skills" | Out-Null
 Copy-Item AGENTS.md, APPEND_SYSTEM.md, settings.json, models.json, mcp.json, web-search.json, pi-cc-extensions.json "$env:USERPROFILE\.pi\agent\"
-Copy-Item -Recurse -Force extensions "$env:USERPROFILE\.pi\agent\"
+New-Item -ItemType Directory -Force "$env:USERPROFILE\.pi\agent\extensions" | Out-Null
+Copy-Item -Recurse -Force extensions\* "$env:USERPROFILE\.pi\agent\extensions\"
 Copy-Item -Recurse -Force skills\* "$env:USERPROFILE\.agents\skills\"
 ```
 
@@ -70,9 +71,11 @@ Copy-Item -Recurse -Force skills\* "$env:USERPROFILE\.agents\skills\"
 > icacls "$env:USERPROFILE\.pi\agent\models.json" /inheritance:r /grant:r "$env:USERNAME:(R,W)"
 > ```
 
-### 4. 装扩展包
+### 4. 扩展包会自动装
 
-`settings.json` 里 `packages` 列了 11 个包，逐个安装：
+`settings.json` 里 `packages` 列了 11 个包。**首次启动 pi 时它会自己检测并 `npm install` 掉缺失的包** —— 实测：把一个包目录移走后启动，输出 `added 1 package in 2s` 并装回原版本。
+
+所以第 2 步拷完配置就能直接用，第一次 `pi` 启动会静默补齐。想当场看到安装过程（或怀疑某个包没装上），也可以手动逐个装 —— 这个操作是幂等的，`addSourceToSettings` 发现条目已存在会直接返回，不会把 `packages` 数组写重复：
 
 ```powershell
 pi install npm:pi-mcp-adapter
