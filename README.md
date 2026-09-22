@@ -9,6 +9,7 @@
 ```
 .
 ├── AGENTS.md              # 全局行为准则（语言、编码原则、工作流、工具使用策略）
+├── APPEND_SYSTEM.md       # 追加到 system prompt 的内容（人设 / 输出风格）
 ├── settings.json          # pi 核心设置（主题、包列表、重试、压缩、默认模型等）
 ├── models.json            # 自定义 provider（key 用 $ENV 占位，见下）
 ├── mcp.json               # MCP 服务器（chrome-devtools / searchcode / tavily）
@@ -41,7 +42,7 @@ npm install -g --ignore-scripts @earendil-works/pi-coding-agent
 git clone -b windows https://github.com/onerentop/my-pi.git
 cd my-pi
 New-Item -ItemType Directory -Force "$env:USERPROFILE\.pi\agent", "$env:USERPROFILE\.agents\skills" | Out-Null
-Copy-Item AGENTS.md, settings.json, models.json, mcp.json, web-search.json, pi-cc-extensions.json "$env:USERPROFILE\.pi\agent\"
+Copy-Item AGENTS.md, APPEND_SYSTEM.md, settings.json, models.json, mcp.json, web-search.json, pi-cc-extensions.json "$env:USERPROFILE\.pi\agent\"
 Copy-Item -Recurse -Force extensions "$env:USERPROFILE\.pi\agent\"
 Copy-Item -Recurse -Force skills\* "$env:USERPROFILE\.agents\skills\"
 ```
@@ -185,6 +186,9 @@ rtk init -g
 
 ## 📝 已知事项
 
+- **`models.json` 里两个 provider 的 `baseUrl` 都指向私有中转 `https://sub2api.topren.top`。** 这是配置作者的转发服务，不是公开端点。换台机器要么改掉这两处 `baseUrl`（官方 Anthropic 写 `https://api.anthropic.com`），要么就没有 key 可用 —— 填了 `$ENV` 同样会 401/404。
+- **`~/.pi/agent/extensions/model-router/` 不在本仓库。** 那是本机的另一个扩展：每次输入先用分类模型判断该走「只读规划」还是「直接执行」。它的 `config.json` 里硬编码了 provider 名，必须与 `models.json` 的 provider 名保持一致（曾经因为改名报过 `未找到模型` + `分类失败，已使用 Terra`），耦合太紧所以不随库分发。要迁移就把整个目录拷过去，并核对 `provider` 字段。
+- **`superpowers` 系列 12 个 skill 不在本仓库。** 它们属于另一个项目，本机是以目录链接（Windows junction）挂进 `~/.agents/skills/` 的。需要就单独装，或把它的 skills 目录写进 `settings.json` 的 `skills` 数组。
 - `web-search.json` 放行了 `198.18.0.0/15`：某些代理的 fake-ip 模式会把外网域名解析到这个网段，`fetch_content` 的 SSRF 防护会拦，放行后正常。不用代理可删掉。
 - `mcp.json` 里的 `tavily-remote-mcp` 靠 `TAVILY_API_KEY` 鉴权。变量没设时该服务器连不上，启动会打一行警告，**不影响其他 MCP**。不用 tavily 的话把那节删掉即可。
 - `mcp.json` 用 `cmd` + `["/c", "npx", ...]` 而不是直接 `npx`：Windows 上 `npx` 是 `.cmd` 批处理，直接 spawn 会失败。已在 `autoConnect` 模式下实测连通。
