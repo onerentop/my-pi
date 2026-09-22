@@ -75,6 +75,15 @@
 - 系统管理命令（需要管理员权限或 `-Verb RunAs` 的操作）
 - 破坏性文件操作（`Remove-Item -Recurse -Force`、覆盖式 `Move-Item`、`curl`/`Invoke-WebRequest` 覆盖下载等）
 
+### 进程管理（孤儿进程陷阱）
+
+PowerShell 的 `Stop-Process` 和 .NET 的 `Process.Kill()` **只杀你指定的那一个 PID，不杀进程树**（[PowerShell #15075](https://github.com/PowerShell/PowerShell/issues/15075) 提了很多年，至今没实现 `-Tree`）。从 `cmd.exe` 或 `Start-Process` 拉起的长驻子进程，会在父进程被杀后变成孤儿，继续占用终端 —— 表现为“命令跑完就卡住、不继续、也没结束提示”。**换 shell 不能解决**：Git Bash 的 `kill $!` 同样只作用于直接子进程。
+
+- **杀进程树用 `taskkill /PID <pid> /T /F`**。`/T` 连子孙，`/F` 强制。在 Git Bash 里写 `taskkill //PID <pid> //T //F`，否则开头那个 `/` 会被 MSYS 的路径转换吃掉。
+- **不得在活动的 pi 会话里启动第二个交互式 pi**（比如 `cmd /c pi`）。两个进程抢同一控制台，父进程一被杀子进程就成孤儿。
+- 需要验证 TUI 类程序时，按安全性从高到低选：① 只验模块能不能解析（`node -e "import('包名')"`）；② 重定向 stdin（`' ' | pi --no-session`）；③ `Start-Job`（父进程退出时作业会被一并清理）。
+- 排查孤儿：`Get-CimInstance Win32_Process -Filter "Name='node.exe'" | Select-Object ProcessId, ParentProcessId, CreationDate, CommandLine`，`ParentProcessId` 对应的进程已不存在就是孤儿。
+
 ## 核心工作流
 
 ### 普通功能

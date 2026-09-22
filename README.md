@@ -151,7 +151,6 @@ rtk init -g
 
 | 项 | linux | windows |
 |---|---|---|
-| `defaultTools` | `bash` | `powershell` |
 | mcp.json chrome-devtools | `npx … --isolated`（自己拉起 Chrome） | `cmd /c npx … --autoConnect`（连已开的 Chrome） |
 | AGENTS.md 环境声明 | Linux / Python 3.12 / jq / rg | Windows 11 / PowerShell / 无 jq |
 | 4 个脚本 | bash `.sh` | PowerShell `.ps1`（`planning-with-files` ×3、`skill-monitor` ×1） |
@@ -189,6 +188,13 @@ rtk init -g
 
 ## 📝 已知事项
 
+- **内置 shell 用 Git Bash（`defaultTools: ["read","bash","edit","write"]`），不用 `powershell` 工具。** 早期版本用的是 `powershell`：PowerShell 的 `Stop-Process` 与 .NET 的 `Process.Kill()` **只杀你指定的那一个 PID，不杀进程树**（[PowerShell #15075](https://github.com/PowerShell/PowerShell/issues/15075) 提了很多年，至今没实现 `-Tree`）。从 `cmd.exe` 或 `Start-Process` 拉起的长驻子进程会在父进程被杀后变成孤儿、继续占用控制台，表现为「命令跑完就卡住不继续、也没结束提示」。
+
+  ⚠️ **换 shell 本身并不能解决这个问题** —— Git Bash 的 `kill $!` 同样只作用于直接子进程。真正的解法有两条：
+  1. 杀进程树一律用 `taskkill /PID <pid> /T /F`（`/T` 连子孙、`/F` 强制）。在 Git Bash 里要写 `taskkill //PID <pid> //T //F`，否则开头那个 `/` 会被 MSYS 的路径转换吃掉。
+  2. 不要在活动的 pi 会话里再起一个交互式 pi —— 两个进程抢同一终端，父进程一被杀子进程就成孤儿。
+
+  完整规范（含验证 TUI 类程序的三种安全做法、孤儿排查命令）写在 `AGENTS.md` 的「进程管理」一节。
 - **`models.json` 里两个 provider 的 `baseUrl` 都指向私有中转 `https://sub2api.topren.top`。** 这是配置作者的转发服务，不是公开端点。换台机器要么改掉这两处 `baseUrl`（官方 Anthropic 写 `https://api.anthropic.com`），要么就没有 key 可用 —— 填了 `$ENV` 同样会 401/404。
 - **`~/.pi/agent/extensions/model-router/` 不在本仓库。** 那是本机的另一个扩展：每次输入先用分类模型判断该走「只读规划」还是「直接执行」。它的 `config.json` 里硬编码了 provider 名，必须与 `models.json` 的 provider 名保持一致（曾经因为改名报过 `未找到模型` + `分类失败，已使用 Terra`），耦合太紧所以不随库分发。要迁移就把整个目录拷过去，并核对 `provider` 字段。
 - **`superpowers` 系列 12 个 skill 不在本仓库。** 它们属于另一个项目，本机是以目录链接（Windows junction）挂进 `~/.agents/skills/` 的。需要就单独装，或把它的 skills 目录写进 `settings.json` 的 `skills` 数组。
