@@ -1,6 +1,8 @@
-# 🧠 my-pi（Linux 分支）
+# 🧠 my-pi（Windows 分支）
 
-个人 [pi](https://pi.dev) 编码智能体配置仓库 —— **Linux 版**。`main` 分支是 Windows/PowerShell 版；本分支把所有平台相关的部分改成了 bash / Linux 事实，并加了一批扩展。
+个人 [pi](https://pi.dev) 编码智能体配置仓库 —— **Windows 版**。基于 `linux` 分支的完整扩展列表与目录结构，把所有平台相关的部分改回 Windows 事实（PowerShell、schtasks、SnoreToast、无 jq）。
+
+`main` 分支是早期的 Windows 配置（7 个包、AGENTS.md 较旧），已被本分支取代 —— 本分支多了 4 个扩展包、全套 pi-web-access / pi-subagents / pi-lens / plannotator 集成，以及 AGENTS.md 的完整工具清单。
 
 ## 📦 目录结构
 
@@ -23,46 +25,55 @@
 
 ## 🚀 安装
 
-### 1. 装 pi
+### 1. 装 pi 和 Git for Windows
 
-```bash
+```powershell
 npm install -g --ignore-scripts @earendil-works/pi-coding-agent
 ```
 
 需要 Node ≥ 22.19。
 
+**Git for Windows 也必须装** —— pi 在 Windows 上默认用 Git Bash 承载 `bash` 工具与 `!` 命令（`C:\Program Files\Git\bin\bash.exe`）。若装在别处，在 `settings.json` 里用 `shellPath` 指过去。
+
 ### 2. 放配置
 
-```bash
-git clone -b linux https://github.com/onerentop/my-pi.git
+```powershell
+git clone -b windows https://github.com/onerentop/my-pi.git
 cd my-pi
-mkdir -p ~/.pi/agent ~/.agents/skills
-cp settings.json models.json mcp.json web-search.json pi-cc-extensions.json AGENTS.md ~/.pi/agent/
-cp -a extensions ~/.pi/agent/
-cp -a skills/* ~/.agents/skills/
-chmod 600 ~/.pi/agent/models.json
+New-Item -ItemType Directory -Force "$env:USERPROFILE\.pi\agent", "$env:USERPROFILE\.agents\skills" | Out-Null
+Copy-Item AGENTS.md, settings.json, models.json, mcp.json, web-search.json, pi-cc-extensions.json "$env:USERPROFILE\.pi\agent\"
+Copy-Item -Recurse -Force extensions "$env:USERPROFILE\.pi\agent\"
+Copy-Item -Recurse -Force skills\* "$env:USERPROFILE\.agents\skills\"
 ```
+
+> `~/.agents/skills/` 是 pi 的全局 skill 发现目录（与 `~/.pi/agent/skills/` 并列）。放在这里而不是 `~/.claude/skills/`，SKILL.md 里的路径引用也已按此改过。
 
 ### 3. 填 key
 
 `models.json` 里两把 key 是环境变量占位符，pi 会自动展开 `$VAR`。二选一：
 
-```bash
-# 方式 A：写进 shell 环境
-echo 'export ANTHROPIC_AUTH_TOKEN=sk-...'   >> ~/.bashrc   # Claude 路由
-echo 'export SUB2API_DEEPSEEK_KEY=sk-...'   >> ~/.bashrc   # DeepSeek 路由
-echo 'export TAVILY_API_KEY=tvly-...'       >> ~/.bashrc   # tavily MCP + pi-web-access 回退
+```powershell
+# 方式 A：写进用户级环境变量（推荐 —— 文件里不留明文）
+[Environment]::SetEnvironmentVariable('ANTHROPIC_AUTH_TOKEN',  'sk-...',   'User')  # Claude 路由
+[Environment]::SetEnvironmentVariable('SUB2API_DEEPSEEK_KEY',   'sk-...',   'User')  # DeepSeek 路由
+[Environment]::SetEnvironmentVariable('TAVILY_API_KEY',         'tvly-...', 'User')  # tavily MCP + pi-web-access 回退
+# 改完重开终端
 
-# 方式 B：直接把 key 写进 ~/.pi/agent/models.json（文件已 600）
+# 方式 B：直接把 key 写进 $env:USERPROFILE\.pi\agent\models.json
 ```
 
 > ⚠️ `anthropic` provider **必须**带 `apiKey`（哪怕是 `$VAR`）。只给 `baseUrl` 会导致没有该环境变量的终端里 `/model` 中所有 Claude 模型不可选。
+
+> ⚠️ 若走方式 B，记得锁文件权限：
+> ```powershell
+> icacls "$env:USERPROFILE\.pi\agent\models.json" /inheritance:r /grant:r "$env:USERNAME:(R,W)"
+> ```
 
 ### 4. 装扩展包
 
 `settings.json` 里 `packages` 列了 11 个包，逐个安装：
 
-```bash
+```powershell
 pi install npm:pi-mcp-adapter
 pi install npm:@ff-labs/pi-fff
 pi install npm:@juicesharp/rpiv-ask-user-question
@@ -78,17 +89,22 @@ pi install npm:@plannotator/pi-extension
 
 ### 5. 装外部依赖
 
-```bash
+```powershell
 # rtk —— pi-rtk-optimizer 靠它压缩命令输出，没装则静默旁路
-curl -fsSL https://raw.githubusercontent.com/rtk-ai/rtk/refs/heads/master/install.sh | sh
+# 官方没有 PowerShell 安装脚本，从 release 下 zip：
+#   https://github.com/rtk-ai/rtk/releases → rtk-x86_64-pc-windows-msvc.zip
+# 解压后把 rtk.exe 所在目录加进 PATH
+rtk --version
 
-# 桌面通知（@pi-unipi/notify）
-sudo apt install libnotify-bin
-
-# chrome-devtools MCP 需要本机 Chrome/Chromium
+# 装完后跑一次让 hook 生效（省 token）：
+rtk init -g
 ```
 
-可选：`pyright`、`ruff`、`eslint` 等 —— `pi-lens` 检测到就会用。
+- **桌面通知**（`@pi-unipi/notify`）：Windows 走 SnoreToast，随包自动带，零配置。
+- **chrome-devtools MCP**：需要本机有 Chrome 或 Edge。
+- **PowerShell**：`pwsh` 7 优先，没有则回落 Windows PowerShell 5.1。
+
+可选：`ruff`、`mypy`、`rust-analyzer` 等 —— `pi-lens` 检测到就会用。
 
 ## 🧩 扩展包一览
 
@@ -97,7 +113,7 @@ sudo apt install libnotify-bin
 | `pi-mcp-adapter` | MCP 协议适配，把 mcp.json 里的服务器暴露为 `mcp` / `mcpScript` 工具 |
 | `@ff-labs/pi-fff` | `ffgrep` / `fffind` 文件搜索（替代内置 grep/find） |
 | `@juicesharp/rpiv-ask-user-question` | 结构化提问 `ask_user_question` |
-| `@pi-unipi/notify` | 跨平台通知 `notify_user`（Linux 走 notify-send） |
+| `@pi-unipi/notify` | 跨平台通知 `notify_user`（Windows 走 SnoreToast） |
 | `pi-cc-extensions` | Claude Code 风格 UI、`/context`、diff 渲染等 |
 | `pi-rtk-optimizer` | 把 git/test/lint 命令重写为 `rtk …` 压缩输出 |
 | `@juicesharp/rpiv-todo` | `todo` 工具 + 常驻覆盖层 |
@@ -112,9 +128,9 @@ sudo apt install libnotify-bin
 |-------|------|
 | `gencom` | 根据 git diff 生成符合项目风格的提交信息 |
 | `code-review-expert` | 资深工程师视角的代码审查 |
-| `planning-with-files` | 文件化任务规划（脚本已移植为 bash） |
+| `planning-with-files` | 文件化任务规划（脚本已移植为 PowerShell） |
 | `skill-creator` | 创建、优化 skill，含 eval 评测 |
-| `skill-monitor` | 监控 GitHub 仓库文件更新（脚本已移植为 bash，定时用 systemd timer） |
+| `skill-monitor` | 监控 GitHub 仓库文件更新（脚本已移植为 PowerShell，定时用 schtasks） |
 | `i-have-adhd` | ADHD 模式输出规则 |
 | `humanizer-zh` | 去除中文文本的 AI 痕迹 |
 | `naming` | 中文描述 → 英文标识符 |
@@ -125,29 +141,56 @@ sudo apt install libnotify-bin
 | `github-issue-creator` / `pr-creator` / `pr-address-comments` | GitHub Issue / PR / 评论处理 |
 | `grill-me-docs-standalone` | 需求不明确时反复追问澄清 |
 
-## ⚙️ 与 main（Windows 版）的差异
+`i-have-adhd` 与 `grill-me-docs-standalone` 带 `disable-model-invocation: true`，不会出现在模型的 skill 列表里，只能手动 `/i-have-adhd`、`/grill-with-docs` 调用。
 
-| 项 | main | linux |
+## ⚙️ 与 linux 分支的差异
+
+| 项 | linux | windows |
 |---|---|---|
-| `defaultTools` | `powershell` | `bash` |
-| mcp.json chrome-devtools | `cmd /c npx … --autoConnect` | `npx … --isolated`（自己拉起 Chrome） |
-| AGENTS.md 环境声明 | Windows 11 / 无 Python | Linux / Python 3.12 / rg / jq / gh / uv |
-| 4 个 `.ps1` 脚本 | PowerShell | 移植为 bash（`planning-with-files` ×3、`skill-monitor` ×1） |
-| skill-monitor 定时 | schtasks XML | systemd user timer（附 cron 备选） |
-| `httpProxy` | `127.0.0.1:7897` | 移除（直连即可） |
-| 重试 | 8 次 / 10s | 3 次 / 3s |
-| `defaultThinkingLevel` | high | medium |
-| `compaction` | 关 | 开 |
-| `.i-have-adhd-always` | 存在（ADHD 常开） | 移除（按需 `/adhd`） |
-| 联网搜索 | tavily MCP | `pi-web-access`（tavily 保留为 MCP + 回退 provider） |
-| 新增扩展 | — | `pi-web-access`、`pi-subagents`、`pi-lens`、`@plannotator/pi-extension` |
-| 默认模型 | LinuxHub / deepseek | anthropic / claude-sonnet-4-5（`sub2api/deepseek-v4-flash` 备用） |
+| `defaultTools` | `bash` | `powershell` |
+| mcp.json chrome-devtools | `npx … --isolated`（自己拉起 Chrome） | `cmd /c npx … --autoConnect`（连已开的 Chrome） |
+| AGENTS.md 环境声明 | Linux / Python 3.12 / jq / rg | Windows 11 / PowerShell / 无 jq |
+| 4 个脚本 | bash `.sh` | PowerShell `.ps1`（`planning-with-files` ×3、`skill-monitor` ×1） |
+| skill-monitor 定时 | systemd user timer | schtasks XML（每日 09:00 + 登录延迟 30 分钟） |
+| 桌面通知 | notify-send / libnotify | SnoreToast（自动） |
+| rtk 安装 | `install.sh \| sh` | release zip 解压进 PATH |
+| wttr.in 之外的网络工具 | curl / jq | `Invoke-RestMethod`；无 jq 时用 Python |
+| 联网搜索 | `pi-web-access` | 同 |
+| 默认模型 | anthropic / claude-sonnet-4-5 | 同 |
+| 重试 / 思考等级 / 压缩 | 3 次 / 3s、medium、开 | 同 |
+| `.i-have-adhd-always` | 移除（按需 `/adhd`） | 移除（同） |
+
+## 🔧 本分支相对 linux 修的问题
+
+1. **`anthropic` provider 走 sub2api 中转必然 400**
+
+   ```
+   400 ... messages.0.content.0.cache_control.ttl: a ttl='1h' cache_control block
+   must not come after a ttl='5m' cache_control block
+   ```
+
+   中转把 `system` 上的 `ttl: "1h"` 排在 `messages` 上的 `ttl: "5m"` 之前，顺序反了。已在 `models.json` 的 anthropic provider 加：
+
+   ```json
+   "compat": { "supportsLongCacheRetention": false }
+   ```
+
+   若你换用 Anthropic 官方端点，去掉这段可以恢复 1h 长缓存。字段见 pi 文档 `docs/models.md` 的 Anthropic Messages Compatibility。
+
+2. **`planning-with-files/SKILL.md` 的 3 处 `$HOME/.claude/skills/` → `$HOME/.agents/skills/`** —— pi 读 `.agents`，`.claude` 是 Claude Code 的路径，原样会导致脚本找不到。
+
+3. **`planning-with-files/SKILL.md` 末尾把 `init-session.sh` / `check-complete.sh` 改成 `.ps1`** —— 上游改脚本时漏掉的。
+
+4. **`todo-list/SKILL.md` 里作者机器的绝对路径改成 `$env:USERPROFILE\.agents\skills\todo-list\scripts\todo.js`** —— 否则换台机器就断。
 
 ## 📝 已知事项
 
 - `web-search.json` 放行了 `198.18.0.0/15`：某些代理的 fake-ip 模式会把外网域名解析到这个网段，`fetch_content` 的 SSRF 防护会拦，放行后正常。不用代理可删掉。
+- `mcp.json` 里的 `tavily-remote-mcp` 靠 `TAVILY_API_KEY` 鉴权。变量没设时该服务器连不上，启动会打一行警告，**不影响其他 MCP**。不用 tavily 的话把那节删掉即可。
+- `mcp.json` 用 `cmd` + `["/c", "npx", ...]` 而不是直接 `npx`：Windows 上 `npx` 是 `.cmd` 批处理，直接 spawn 会失败。已在 `autoConnect` 模式下实测连通。
 - `pi-lens` 有自动安装外部 linter 的策略（gitleaks / trivy 等安全扫描是 opt-in，默认不装）。
 - `pi-subagents` 每个子代理是独立进程独立上下文，并行开多个 = 多倍 token。
+- `!` 和 `!!` 编辑器命令**始终**走 Bash，不受 `defaultTools` 影响。
 
 ## 感谢
 

@@ -2,7 +2,10 @@
   "providers": {
     "anthropic": {
       "baseUrl": "https://sub2api.topren.top",
-      "apiKey": "$ANTHROPIC_AUTH_TOKEN"
+      "apiKey": "$ANTHROPIC_AUTH_TOKEN",
+      "compat": {
+        "supportsLongCacheRetention": false
+      }
     },
     "sub2api": {
       "baseUrl": "https://sub2api.topren.top/v1",

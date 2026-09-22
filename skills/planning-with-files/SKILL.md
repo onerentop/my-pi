@@ -8,16 +8,16 @@ hooks:
     - matcher: "Write|Edit|Bash|Read|Glob|Grep"
       hooks:
         - type: command
-          command: "if [ -f 'Task/task_plan.md' ]; then head -30 'Task/task_plan.md'; else echo '[planning-with-files] No task plan found'; fi 2>/dev/null || echo '[planning-with-files] Pre-tool check skipped'"
+          command: "powershell -NoProfile -ExecutionPolicy Bypass -Command \"if (Test-Path 'Task/task_plan.md') { Get-Content 'Task/task_plan.md' -TotalCount 30 } else { Write-Host '[planning-with-files] No task plan found' }\" 2>/dev/null || echo '[planning-with-files] Pre-tool check skipped'"
   PostToolUse:
     - matcher: "Write|Edit"
       hooks:
         - type: command
-          command: "echo '[planning-with-files] File updated. If this completes a phase, update Task/task_plan.md status.'"
+          command: "powershell -NoProfile -ExecutionPolicy Bypass -Command \"Write-Host '[planning-with-files] File updated. If this completes a phase, update Task/task_plan.md status.'\" 2>/dev/null || echo '[planning-with-files] File updated. If this completes a phase, update Task/task_plan.md status.'"
   Stop:
     - hooks:
         - type: command
-          command: "bash \"$HOME/.agents/skills/planning-with-files/scripts/check-complete.sh\" 2>/dev/null || echo '[planning-with-files] Task completion check skipped'"
+          command: "powershell -NoProfile -ExecutionPolicy Bypass -File \"$HOME/.agents/skills/planning-with-files/scripts/check-complete.ps1\" 2>/dev/null || echo '[planning-with-files] Task completion check skipped'"
 metadata:
   version: "2.21.0"
 ---
@@ -31,11 +31,14 @@ Work like Manus: Use persistent markdown files as your "working memory on disk."
 **Before starting work**, check for unsynced context from a previous session:
 
 ```bash
-bash "$HOME/.agents/skills/planning-with-files/scripts/session-catchup.sh" "$(pwd)"
+# Windows Git Bash (MSYS2)
+powershell -NoProfile -File "$HOME/.agents/skills/planning-with-files/scripts/session-catchup.ps1" "$(pwd)"
 ```
 
-脚本会按以下顺序查找会话记录目录：`$PLANNING_PROJECTS_DIR` → 脚本位置上溯三级的 `projects/` → `~/.claude/projects`。
-若你的会话记录不在这些位置，导出 `PLANNING_PROJECTS_DIR` 指向正确目录即可。
+```powershell
+# Windows PowerShell
+& "$env:USERPROFILE\.agents\skills\planning-with-files\scripts\session-catchup.ps1" (Get-Location)
+```
 
 If catchup report shows unsynced context:
 1. Run `git diff --stat` to see actual code changes
@@ -192,9 +195,9 @@ Copy these templates to start:
 
 Helper scripts for automation:
 
-- `scripts/init-session.sh` — Initialize all planning files
-- `scripts/check-complete.sh` — Verify all phases complete
-- `scripts/session-catchup.sh` — Recover context from previous session (v2.2.0)
+- `scripts/init-session.ps1` — Initialize all planning files
+- `scripts/check-complete.ps1` — Verify all phases complete
+- `scripts/session-catchup.ps1` — Recover context from previous session (v2.2.0)
 
 ## Advanced Topics
 

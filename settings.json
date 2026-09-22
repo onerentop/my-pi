@@ -2,7 +2,7 @@
   "lastChangelogVersion": "0.87.0",
   "defaultTools": [
     "read",
-    "bash",
+    "powershell",
     "edit",
     "write"
   ],

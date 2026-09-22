@@ -3,12 +3,20 @@
 ## 语言和环境
 
 - **语言**: 所有输出（包括思考过程、回复、代码注释和 commit 信息）一律使用简体中文
-- **操作系统**: Linux（Debian 系，内核 6.18 rolling）| **AI 终端**: bash | **用户终端**: bash
-- **Python 环境**: 已安装 Python 3.12（`python3` / `python`），可使用 Python 脚本；包管理器另有 `uv`
-- **已安装 CLI**: GitHub CLI（`gh`）、`git`、`rg`（ripgrep）、`jq`、`npx`、`uv`。涉及 GitHub 仓库操作时优先使用 `gh`
-- **未安装**: `fd`（用 `rg --files` 或 `find` 替代）
-- **网络代理**: 本机有 HTTP 代理 `127.0.0.1:7897`，但 pi **不走**它（网关、MCP、npm 均可直连）；个别命令需要时手动加 `https_proxy=http://127.0.0.1:7897`
-- **rtk**: 已安装 `~/.local/bin/rtk`，`pi-rtk-optimizer` 会自动把 git/test/lint 等命令重写为 `rtk …` 以压缩输出，无需手动调用
+- **操作系统**: Windows 11（内核 10.0.26220，x64）| **AI 终端**: PowerShell | **用户终端**: PowerShell（`pwsh` 7 / `powershell` 5.1）、Git Bash
+- **Python 环境**: 已安装 Python 3.13（`python3`，`%LOCALAPPDATA%\Programs\Python\Python313`）与 Python 3.11（`python`，hermes venv）；包管理器另有 `uv`
+- **已安装 CLI**: GitHub CLI（`gh`）、`git`、`rg`（ripgrep）、`fd`、`npx`、`uv`、`cargo`、`go`、`rtk`。涉及 GitHub 仓库操作时优先使用 `gh`
+- **未安装**: `jq`（改用 `python -c` 或 PowerShell 的 `ConvertFrom-Json`）
+- **网络代理**: 本机有 HTTP 代理 `127.0.0.1:7897`，但 pi **不走**它（网关、MCP、npm 均已验证可直连）；个别命令需要时手动加 `$env:HTTPS_PROXY="http://127.0.0.1:7897"`
+- **rtk**: 已安装 `%LOCALAPPDATA%\Programs\rtk\v0.45.0\rtk.exe`，`pi-rtk-optimizer` 会自动把 git/test/lint 等命令重写为 `rtk …` 以压缩输出，无需手动调用
+
+### Windows 平台注意事项
+
+- **路径**：给用户看的路径用 `C:\…` 反斜杠风格；Git Bash 下的 `/c/…` 同样有效，脚本里注意区分
+- **换行**：仓库统一 LF，必要时 `git config core.autocrlf input`
+- **编码**：PowerShell 输出中文前可先 `[Console]::OutputEncoding = [Text.Encoding]::UTF8`，避免乱码
+- **长路径**：超过 260 字符可能失败，必要时用 `\\?\` 前缀
+- **Shell 选择**：默认 PowerShell；涉及 POSIX 工具链（`sed`/`awk`/`.sh` 脚本）时才切 Git Bash
 
 ## 权限
 
@@ -55,17 +63,17 @@
 - **Git 只读**：`git status/log/diff/branch/show/blame`
 - **GitHub 操作**：`gh pr/issue/repo/search` 等
 
-### 提供给用户执行（bash 代码块）
+### 提供给用户执行（PowerShell 代码块）
 
-需要 root 权限、交互式操作、长运行进程的命令 → 给出 bash 代码块，由用户手动执行
+需要管理员权限、交互式操作、长运行进程的命令 → 给出 PowerShell 代码块，由用户手动执行
 
-典型需要用户执行的场景：`sudo apt install`、`systemctl` 管理服务、`docker` 守护进程操作、交互式登录（`gh auth login`、`gcloud auth login`）
+典型需要用户执行的场景：`winget install`、`Start-Process -Verb RunAs`、服务管理（`Start-Service` / `Set-Service` / `sc.exe`）、`docker` 守护进程操作、交互式登录（`gh auth login`、`gcloud auth login`）
 
 ### 绝对禁止
 
-- 交互式命令（`vim`/`nano` 等文本编辑器、交互式安装向导）
-- 系统管理命令（需要 `sudo` 的操作）
-- 破坏性文件操作 shell 命令（`rm -rf`、`mv` 覆盖、`curl` 下载覆盖等）
+- 交互式命令（`vim`/`notepad` 等文本编辑器、交互式安装向导）
+- 系统管理命令（需要管理员权限或 `-Verb RunAs` 的操作）
+- 破坏性文件操作（`Remove-Item -Recurse -Force`、覆盖式 `Move-Item`、`curl`/`Invoke-WebRequest` 覆盖下载等）
 
 ## 核心工作流
 
@@ -86,12 +94,12 @@
 
 ## 网络访问（pi-web-access）
 
-**优先用这组工具**，零配置（默认走 Exa，免 key；`TAVILY_API_KEY` 已配，tavily 作为回退之一）。
+**优先用这组工具**，零配置（默认走 Exa，免 key；`TAVILY_API_KEY` 未设置时 tavily 自动跳过）。
 
 | 工具 | 用途 |
 |------|------|
 | `web_search` | 联网搜索。可一次传多个 `queries` 并发；`recencyFilter: day/week/month/year`；`domainFilter: ["github.com","-reddit.com"]`；`provider: "all"` 让所有引擎并发各出一张结果卡 |
-| `fetch_content` | 抓 URL 转 markdown，**自动识别类型**：GitHub 仓库默认返回 API 视图（README + 结构，不 clone），要完整源码就 `bash git clone`；PR/issue 用 `gh` 渲染；PDF、YouTube、图片均可；长页面用 `mode: "answer"` + `prompt` 只取要点 |
+| `fetch_content` | 抓 URL 转 markdown，**自动识别类型**：GitHub 仓库默认返回 API 视图（README + 结构，不 clone），要完整源码就 `git clone`；PR/issue 用 `gh` 渲染；PDF、YouTube、图片均可；长页面用 `mode: "answer"` + `prompt` 只取要点 |
 | `get_search_content` | 按 `responseId` 翻之前搜索结果的全文，`findText` 定位关键词（缓存 1 小时） |
 | `source_check` | 给一个断言收集证据并返回 `supported / contradicted / unclear`，只收集不判断 |
 
@@ -116,7 +124,7 @@
 
 ## 代码诊断（pi-lens）
 
-每次 `write`/`edit` 后自动把 LSP 诊断、linter（ruff/eslint 等）、类型检查结果附在工具返回里 —— **看到诊断就修，不要忽略**。额外工具：`lens_diagnostics`（按需对文件/目录跑诊断）、`symbol_search` / `read_symbol` / `read_enclosing`（按符号定位读取，比整文件 read 省 token）、`project_report` / `module_report`（项目/模块健康概览）。本机已有 pyright、bash-language-server。
+每次 `write`/`edit` 后自动把 LSP 诊断、linter（ruff/eslint 等）、类型检查结果附在工具返回里 —— **看到诊断就修，不要忽略**。额外工具：`lens_diagnostics`（按需对文件/目录跑诊断）、`symbol_search` / `read_symbol` / `read_enclosing`（按符号定位读取，比整文件 read 省 token）、`project_report` / `module_report`（项目/模块健康概览）。本机已有 `ruff`、`mypy`、`rust-analyzer`；未装 pyright、eslint、typescript-language-server、bash-language-server（需要时用 `npm i -g` 或 `uv tool install` 补）。
 
 ## 计划模式（Plannotator）
 
@@ -145,7 +153,7 @@
 |------|------|
 | `tavily-remote-mcp_tavily_search` | 搜索当前信息、新闻、事实 |
 | `tavily-remote-mcp_tavily_extract` | 提取指定 URL 的页面内容（纯文本） |
-| `tavily-remote-mcp_tavily_crawl` | 从起始 URL 开始爬取网站，提取页面内容 |
+| `tavily-remote-mcp_tavily_crawl` | 从起始 URL 爬取网站，提取页面内容 |
 | `tavily-remote-mcp_tavily_map` | 映射网站结构，返回 URL 列表 |
 | `tavily-remote-mcp_tavily_research` | 对某个话题进行深度综合研究 |
 
@@ -161,7 +169,7 @@
 | `chrome-devtools_evaluate` | 执行 JS 脚本 |
 
 > 适用场景：需要浏览器交互时（登录、JS 渲染页面、截图验证等）。
-> 注意：需要本机装有 Chrome/Chromium，无头环境下可能需要 `--no-sandbox`。
+> 注意：Windows 上以 `cmd /c npx … --autoConnect` 启动，连接本机已装的 Chrome（`C:\Program Files\Google\Chrome\Application\chrome.exe`）。
 
 ### 使用方式
 

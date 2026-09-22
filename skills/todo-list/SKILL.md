@@ -24,9 +24,9 @@ description: 个人待办（todolist）增删改查工具，支持项目/子任�
 
 ## 执行入口
 
-脚本固定在 `~/.agents/skills/todo-list/scripts/todo.js`（字符集 UTF-8。若移动了 skill，按当前 skill 目录下的 `scripts/todo.js` 找）。数据存放于 `~/.todo/`。
+脚本固定在 `$env:USERPROFILE\.agents\skills\todo-list\scripts\todo.js`（字符集 UTF-8。若移动了 skill，按当前 skill 目录下的 `scripts/todo.js` 找）。
 
-统一调用方式：
+统一调用方式（Windows 下用反斜杠分隔亦可）：
 
 ```bash
 node <skill目录>/scripts/todo.js <命令> <参数>
