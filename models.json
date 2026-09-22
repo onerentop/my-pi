@@ -1,61 +1,36 @@
 {
   "providers": {
-    "深度求索": {
-      "baseUrl": "https://api.deepseek.com",
+    "anthropic": {
+      "baseUrl": "https://sub2api.topren.top",
+      "apiKey": "$ANTHROPIC_AUTH_TOKEN"
+    },
+    "sub2api": {
+      "baseUrl": "https://sub2api.topren.top/v1",
       "api": "openai-completions",
-      "apiKey": "sk-xxx",
+      "apiKey": "$SUB2API_DEEPSEEK_KEY",
       "models": [
-        {
-          "id": "deepseek-v4-pro",
-          "name": "ds-v4-pro",
-          "contextWindow": 1000000,
-          "maxTokens": 384000,
-          "input": ["text"],
-          "reasoning": true,
-          "thinkingLevelMap": { "minimal": null, "low": null, "medium": null, "high": "high", "xhigh": "max" },
-          "cost": {"input": 9,"output": 27,"cacheRead": 0.3,"cacheWrite": 0},
-          "compat": {
-            "requiresReasoningContentOnAssistantMessages": true,
-            "thinkingFormat": "deepseek",
-            "reasoningEffortMap": {
-              "minimal": "high",
-              "low": "high",
-              "medium": "high",
-              "high": "high",
-              "xhigh": "max"
-            }
-          }
-        },
         {
           "id": "deepseek-v4-flash",
           "name": "ds-v4-flash",
           "contextWindow": 1000000,
           "maxTokens": 384000,
-          "input": ["text"],
+          "input": [
+            "text"
+          ],
           "reasoning": true,
-          "thinkingLevelMap": { "minimal": null, "low": null, "medium": null, "high": "high", "xhigh": "max" },
-          "cost": {"input": 3,"output": 9,"cacheRead": 0.1,"cacheWrite": 0},
-          "compat": {
-            "requiresReasoningContentOnAssistantMessages": true,
-            "thinkingFormat": "deepseek",
-            "reasoningEffortMap": {
-              "minimal": "high",
-              "low": "high",
-              "medium": "high",
-              "high": "high",
-              "xhigh": "max"
-            }
-          }
-        },
-        {
-          "id": "deepseek-v4-flash-vision-exp",
-          "name": "ds-v4-vision",
-          "contextWindow": 1000000,
-          "maxTokens": 384000,
-          "input": ["text","image"],
-          "reasoning": true,
-          "thinkingLevelMap": { "minimal": null, "low": null, "medium": null, "high": "high", "xhigh": "max" },
-          "cost": {"input": 3,"output": 9,"cacheRead": 0.1,"cacheWrite": 0},
+          "thinkingLevelMap": {
+            "minimal": null,
+            "low": null,
+            "medium": null,
+            "high": "high",
+            "xhigh": "max"
+          },
+          "cost": {
+            "input": 3,
+            "output": 9,
+            "cacheRead": 0.1,
+            "cacheWrite": 0
+          },
           "compat": {
             "requiresReasoningContentOnAssistantMessages": true,
             "thinkingFormat": "deepseek",
@@ -72,4 +47,3 @@
     }
   }
 }
-

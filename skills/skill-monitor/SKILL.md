@@ -32,7 +32,7 @@ description: 用 GitHub URL 持续监控远程仓库目录下的文件（如 ski
       "repo": "owner/repo",
       "path": "skills/some-skill",
       "ref": "main",
-      "local_dir": "C:/Users/<user>/.agents/skills/some-skill",
+      "local_dir": "/home/<user>/.agents/skills/some-skill",
       "files": {
         "SKILL.md": "<blob sha>",
         "references/schema.md": "<blob sha>"
@@ -78,7 +78,7 @@ description: 用 GitHub URL 持续监控远程仓库目录下的文件（如 ski
    ## 变更列表
    - [修改] SKILL.md（+12 −5 行）
    - [新增] references/schema.md
-   - [删除] scripts/legacy.ps1
+   - [删除] scripts/legacy.sh
 
    ## 变更详情
    ### SKILL.md
@@ -101,72 +101,72 @@ description: 用 GitHub URL 持续监控远程仓库目录下的文件（如 ski
 
 ## 计划任务自动检查
 
-`scripts/check-updates.ps1` 实现自动检查（读取清单 → 网络就绪探测 → API 对比 → 生成摘要报告 → 更新 sha 记录）。注意：**脚本每次运行后直接更新 sha 记录**（它无人值守，无法等用户决策），因此同一文件的更新只报告一次；用户看到报告后如需更新，走上面的"执行更新"流程。
+`scripts/check-updates.sh` 实现自动检查（读取清单 → 网络就绪探测 → API 对比 → 生成摘要报告 → 更新 sha 记录）。注意：**脚本每次运行后直接更新 sha 记录**（它无人值守，无法等用户决策），因此同一文件的更新只报告一次；用户看到报告后如需更新，走上面的"执行更新"流程。
+
+依赖：`jq`、`curl`、`git`（可选，用于 diff 节选）、`gh`（可选，登录后 GitHub API 限速更高）。
 
 **配置文件（可手动修改）**：`~/.skill-monitor/monitor.json`
 
-注册计划任务（**需要用户在 PowerShell 中手动执行**，当前用户级，无需管理员）。推荐双触发器：登录时延迟 30 分钟（覆盖开机没网）+ 每日 09:00；任务设置含"错过计划后尽快运行"。
+注册定时任务（**需要用户手动执行**，用户级 systemd，无需 root）。双触发：开机后延迟 30 分钟（覆盖开机没网）+ 每日 09:00，并启用 `Persistent` 补跑错过的计划。
 
-使用 XML 方式（兼容所有 Windows 版本，`-Delay` 参数可能在旧版 Windows 不可用）：
+```bash
+mkdir -p ~/.config/systemd/user
 
-```powershell
-# 1. 先生成 XML 配置文件
-$scriptPath = "$env:USERPROFILE\.agents\skills\skill-monitor\scripts\check-updates.ps1"
-$xml = @"
-<?xml version="1.0" encoding="UTF-16"?>
-<Task version="1.4" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
-  <RegistrationInfo>
-    <Date>$(Get-Date -Format yyyy-MM-dd)T00:00:00</Date>
-    <Author>User</Author>
-  </RegistrationInfo>
-  <Triggers>
-    <LogonTrigger>
-      <Delay>PT30M</Delay>
-      <Enabled>true</Enabled>
-    </LogonTrigger>
-    <CalendarTrigger>
-      <StartBoundary>$(Get-Date -Format yyyy-MM-dd)T09:00:00</StartBoundary>
-      <Enabled>true</Enabled>
-      <ScheduleByDay>
-        <DaysInterval>1</DaysInterval>
-      </ScheduleByDay>
-    </CalendarTrigger>
-  </Triggers>
-  <Settings>
-    <StartWhenAvailable>true</StartWhenAvailable>
-    <DisallowStartIfOnBatteries>false</DisallowStartIfOnBatteries>
-    <StopIfGoingOnBatteries>false</StopIfGoingOnBatteries>
-    <ExecutionTimeLimit>PT15M</ExecutionTimeLimit>
-  </Settings>
-  <Actions Context="Author">
-    <Exec>
-      <Command>powershell.exe</Command>
-      <Arguments>-NoProfile -ExecutionPolicy Bypass -File "$scriptPath"</Arguments>
-    </Exec>
-  </Actions>
-</Task>
-"@
-$xmlFile = "$env:TEMP\skill-monitor-task.xml"
-$xml | Out-File -FilePath $xmlFile -Encoding UTF8
+cat > ~/.config/systemd/user/skill-monitor.service <<'EOF'
+[Unit]
+Description=skill-monitor check for upstream skill updates
+After=network-online.target
+Wants=network-online.target
 
-# 2. 注册任务（先删除旧任务防止冲突）
-schtasks /delete /tn "skill-monitor-check" /f 2>$null
-schtasks /create /tn "skill-monitor-check" /xml "$xmlFile" /f
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/env bash %h/.agents/skills/skill-monitor/scripts/check-updates.sh
+TimeoutStartSec=15min
+EOF
 
-# 3. 验证
-schtasks /query /tn "skill-monitor-check" /v /fo list | Select-String "触发器|09:00|Logon|PT30M|StartWhenAvailable"
+cat > ~/.config/systemd/user/skill-monitor.timer <<'EOF'
+[Unit]
+Description=skill-monitor schedule (boot+30min, daily 09:00)
+
+[Timer]
+OnBootSec=30min
+OnCalendar=*-*-* 09:00:00
+Persistent=true
+AccuracySec=1min
+
+[Install]
+WantedBy=timers.target
+EOF
+
+systemctl --user daemon-reload
+systemctl --user enable --now skill-monitor.timer
+
+# 开机即生效（无需登录），需要开启 linger：
+sudo loginctl enable-linger "$USER"
+
+# 验证
+systemctl --user list-timers skill-monitor.timer
 ```
 
 说明：
-- **LogonTrigger + Delay PT30M**：开机登录后延迟 30 分钟执行，给网络就绪留时间（脚本内部还会重试最多 5 分钟）
-- **CalendarTrigger 09:00**：常规每日检查
-- **StartWhenAvailable**：电脑关机错过计划时间，下次开机后尽快补跑
-- **ExecutionTimeLimit PT15M**：任务最长运行 15 分钟，防止卡住
+- **OnBootSec=30min**：开机后延迟 30 分钟执行，给网络就绪留时间（脚本内部还会重试最多 5 分钟）
+- **OnCalendar 09:00**：常规每日检查
+- **Persistent=true**：关机错过计划时间，下次开机后尽快补跑
+- **TimeoutStartSec=15min**：任务最长运行 15 分钟，防止卡住
+- **enable-linger**：让用户级 timer 在未登录时也能运行；不需要可省略
+
+若系统没有 systemd，改用 cron：
+
+```bash
+( crontab -l 2>/dev/null; echo "0 9 * * * /usr/bin/env bash $HOME/.agents/skills/skill-monitor/scripts/check-updates.sh >/dev/null 2>&1" ) | crontab -
+```
+
+**查看日志**：`~/.skill-monitor/logs/check-<日期>.log`，或 `journalctl --user -u skill-monitor.service`
 
 **手动触发**（随时检查一次）：
 
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File "$env:USERPROFILE\.agents\skills\skill-monitor\scripts\check-updates.ps1"
+```bash
+bash ~/.agents/skills/skill-monitor/scripts/check-updates.sh
 ```
 
 或直接在对话中说"检查更新"，agent 代为执行并汇报结果。
@@ -176,6 +176,6 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "$env:USERPROFILE\.agents\sk
 - GitHub API 匿名限速 60 次/小时，每天检查一次足够；监控目录文件较多时注意调用次数（contents API 每层一次调用）
 - 优先用 `gh api`（已认证，限速高）；gh 未登录时用 curl 匿名
 - `git diff --no-index` 可用于本地与新版文件的差异提取（对比结束记得删除临时文件）
-- 所有路径使用 Windows 风格（`C:/Users/...`），脚本与 agent 操作保持一致
+- 所有路径使用 Linux 风格（`/home/<user>/...` 或 `~/...`），脚本与 agent 操作保持一致
 - 生成的摘要和汇报一律使用简体中文
 - 保持 monitor.json 为唯一事实来源：所有 sha 更新必须同步写回该文件

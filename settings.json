@@ -1,13 +1,13 @@
 {
-  "lastChangelogVersion": "0.84.3",
+  "lastChangelogVersion": "0.87.0",
   "defaultTools": [
     "read",
-    "powershell",
+    "bash",
     "edit",
     "write"
   ],
   "theme": "cc-dark",
-  "defaultThinkingLevel": "high",
+  "defaultThinkingLevel": "medium",
   "packages": [
     "npm:pi-mcp-adapter",
     "npm:@ff-labs/pi-fff",
@@ -15,24 +15,27 @@
     "npm:@pi-unipi/notify",
     "npm:pi-cc-extensions",
     "npm:pi-rtk-optimizer",
-    "npm:@juicesharp/rpiv-todo"
+    "npm:@juicesharp/rpiv-todo",
+    "npm:pi-web-access",
+    "npm:pi-subagents",
+    "npm:pi-lens",
+    "npm:@plannotator/pi-extension"
   ],
   "retry": {
     "enabled": true,
-    "maxRetries": 8,
-    "baseDelayMs": 10000,
+    "maxRetries": 3,
+    "baseDelayMs": 3000,
     "provider": {
       "maxRetryDelayMs": 120000
     }
   },
   "compaction": {
-    "enabled": false
+    "enabled": true
   },
-  "httpProxy": "http://127.0.0.1:7897",
   "hideThinkingBlock": true,
   "showCacheMissNotices": false,
-  "defaultProvider": "LinuxHub",
-  "defaultModel": "deepseek-v4-flash-vision-exp",
+  "defaultProvider": "anthropic",
+  "defaultModel": "claude-sonnet-4-5",
   "quietStartup": true,
   "tuiMode": "regular",
   "fullscreenExitOutput": "transcript",

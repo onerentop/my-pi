@@ -1,14 +1,12 @@
 {
   "mcpServers": {
     "chrome-devtools": {
-      "command": "cmd",
+      "command": "npx",
       "args": [
-        "/c",
-        "npx",
         "-y",
         "chrome-devtools-mcp@latest",
         "--slim",
-        "--autoConnect",
+        "--isolated",
         "--no-usage-statistics"
       ]
     },
@@ -17,7 +15,7 @@
     },
     "tavily-remote-mcp": {
       "type": "http",
-      "url": "https://mcp.tavily.com/mcp/"
+      "url": "https://mcp.tavily.com/mcp/?tavilyApiKey=${TAVILY_API_KEY}"
     }
   }
 }

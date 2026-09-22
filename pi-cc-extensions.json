@@ -15,7 +15,7 @@
   "previewLines": 0,
   "animationIntervalMs": 90,
   "dimThinkingText": false,
-  "showStartupHeader": true,
+  "showStartupHeader": false,
   "scrollStepLines": 3,
   "enableSessionReference": true,
   "enableSubagentAutocomplete": true,

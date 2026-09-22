@@ -1,187 +1,154 @@
-# 🧠 my-pi
+# 🧠 my-pi（Linux 分支）
 
-个人 [pi](https://pi.dev) 编码智能体 Agent 配置仓库。
+个人 [pi](https://pi.dev) 编码智能体配置仓库 —— **Linux 版**。`main` 分支是 Windows/PowerShell 版；本分支把所有平台相关的部分改成了 bash / Linux 事实，并加了一批扩展。
 
-## 📦 概述
-
-本仓库集中管理 pi Agent 的个性化配置、扩展、MCP 服务以及开发规范，旨在为 AI 编码助手提供**一致的行为准则、工具链和工作流**。
-
-## 🗂️ 目录结构
+## 📦 目录结构
 
 ```
 .
-├── AGENTS.md          # 全局开发配置（语言、编码原则、工作流、命令策略）
-├── settings.json      # pi 核心设置（主题、包、提供商、代理等）
-├── mcp.json           # MCP 服务器配置（chrome-devtools、searchcode、tavily）
-├── models.json        # 自定义 Provider 与模型配置
-├── skills/            # 自定义 skills（见下方 Skills 说明）
-├── extensions/        # 自定义扩展
-│   ├── footer/             # TUI 底部状态栏（cwd/计时/context 进度/token 统计）
-│   ├── i-have-adhd/        # ADHD 模式输出规则集
-│   ├── pi-rtk-optimizer/   # RTK 命令重写与输出压缩优化
-│   └── tools.ts
-├── LICENSE
-└── README.md
+├── AGENTS.md              # 全局行为准则（语言、编码原则、工作流、工具使用策略）
+├── settings.json          # pi 核心设置（主题、包列表、重试、压缩、默认模型等）
+├── models.json            # 自定义 provider（key 用 $ENV 占位，见下）
+├── mcp.json               # MCP 服务器（chrome-devtools / searchcode / tavily）
+├── web-search.json        # pi-web-access 配置（SSRF 放行、tavily key 引用）
+├── pi-cc-extensions.json  # pi-cc-extensions 的 UI 配置
+├── extensions/            # 本地扩展
+│   ├── footer/                 # 自绘底部状态栏（cwd / 计时 / context / token / git）
+│   ├── i-have-adhd/            # ADHD 模式输出规则（按需用 /adhd 开启）
+│   ├── pi-rtk-optimizer/       # pi-rtk-optimizer 的 config.json
+│   └── tools.ts                # /tools 命令：交互式启停工具
+├── skills/                # 17 个 skill（见下）
+└── LICENSE
 ```
 
-## 🧩 扩展说明
+## 🚀 安装
 
-### footer — TUI 底部状态栏
+### 1. 装 pi
 
-一个自绘的底部状态栏扩展，实时展示会话信息，随 TUI 生命周期自动安装/卸载。
+```bash
+npm install -g --ignore-scripts @earendil-works/pi-coding-agent
+```
 
-| 功能 | 说明 |
-|------|------|
-| 路径 | 当前工作目录（cwd） |
-| 计时 | 当前 agent 回合进行时长 / 上一次完成耗时 |
-| context 进度 | 上下文窗口使用进度 |
-| token 统计 | 输入/输出 token 用量，含缓存命中率与成本 |
-| 当前状态 | 模型、思考、扩展、git 分支等状态标识 |
+需要 Node ≥ 22.19。
 
-- 图标支持 **Nerd Font / ASCII** 两种模式，通过 `icons.ts` 自动检测终端切换
-- 相关文件：`index.ts`（生命周期装配）、`footer.ts`（渲染逻辑）、`icons.ts`（图标定义）、`utils.ts`（工具函数）
+### 2. 放配置
 
-### pi-rtk-optimizer
+```bash
+git clone -b linux https://github.com/onerentop/my-pi.git
+cd my-pi
+mkdir -p ~/.pi/agent ~/.agents/skills
+cp settings.json models.json mcp.json web-search.json pi-cc-extensions.json AGENTS.md ~/.pi/agent/
+cp -a extensions ~/.pi/agent/
+cp -a skills/* ~/.agents/skills/
+chmod 600 ~/.pi/agent/models.json
+```
 
-对 RTK 命令进行重写与输出压缩，减少 token 消耗（见 `settings.json` 的 `packages` 说明）。
+### 3. 填 key
 
-### i-have-adhd
+`models.json` 里两把 key 是环境变量占位符，pi 会自动展开 `$VAR`。二选一：
 
-ADHD 模式输出规则集。用户说「ADHD MODE ACTIVE」时生效，调整回复形态：先给下一步动作、步骤编号、每轮重述进度、给具体时间估计等，帮助 ADHD 大脑直接行动。
+```bash
+# 方式 A：写进 shell 环境
+echo 'export ANTHROPIC_AUTH_TOKEN=sk-...'   >> ~/.bashrc   # Claude 路由
+echo 'export SUB2API_DEEPSEEK_KEY=sk-...'   >> ~/.bashrc   # DeepSeek 路由
+echo 'export TAVILY_API_KEY=tvly-...'       >> ~/.bashrc   # tavily MCP + pi-web-access 回退
 
-## 🎯 Skills 说明
+# 方式 B：直接把 key 写进 ~/.pi/agent/models.json（文件已 600）
+```
 
-> pi 会自动读取 `~\.agents\skills` 和 `~\.pi\agent\skills` 这两个全局目录
+> ⚠️ `anthropic` provider **必须**带 `apiKey`（哪怕是 `$VAR`）。只给 `baseUrl` 会导致没有该环境变量的终端里 `/model` 中所有 Claude 模型不可选。
 
-`skills/` 目录存放自定义 skills
+### 4. 装扩展包
+
+`settings.json` 里 `packages` 列了 11 个包，逐个安装：
+
+```bash
+pi install npm:pi-mcp-adapter
+pi install npm:@ff-labs/pi-fff
+pi install npm:@juicesharp/rpiv-ask-user-question
+pi install npm:@pi-unipi/notify
+pi install npm:pi-cc-extensions
+pi install npm:pi-rtk-optimizer
+pi install npm:@juicesharp/rpiv-todo
+pi install npm:pi-web-access
+pi install npm:pi-subagents
+pi install npm:pi-lens
+pi install npm:@plannotator/pi-extension
+```
+
+### 5. 装外部依赖
+
+```bash
+# rtk —— pi-rtk-optimizer 靠它压缩命令输出，没装则静默旁路
+curl -fsSL https://raw.githubusercontent.com/rtk-ai/rtk/refs/heads/master/install.sh | sh
+
+# 桌面通知（@pi-unipi/notify）
+sudo apt install libnotify-bin
+
+# chrome-devtools MCP 需要本机 Chrome/Chromium
+```
+
+可选：`pyright`、`ruff`、`eslint` 等 —— `pi-lens` 检测到就会用。
+
+## 🧩 扩展包一览
+
+| 包 | 作用 |
+|---|---|
+| `pi-mcp-adapter` | MCP 协议适配，把 mcp.json 里的服务器暴露为 `mcp` / `mcpScript` 工具 |
+| `@ff-labs/pi-fff` | `ffgrep` / `fffind` 文件搜索（替代内置 grep/find） |
+| `@juicesharp/rpiv-ask-user-question` | 结构化提问 `ask_user_question` |
+| `@pi-unipi/notify` | 跨平台通知 `notify_user`（Linux 走 notify-send） |
+| `pi-cc-extensions` | Claude Code 风格 UI、`/context`、diff 渲染等 |
+| `pi-rtk-optimizer` | 把 git/test/lint 命令重写为 `rtk …` 压缩输出 |
+| `@juicesharp/rpiv-todo` | `todo` 工具 + 常驻覆盖层 |
+| `pi-web-access` | `web_search` / `fetch_content` / `get_search_content` / `source_check`，默认 Exa 免 key，多引擎回退 |
+| `pi-subagents` | `subagent` 工具，内置 scout / researcher / worker / reviewer / oracle |
+| `pi-lens` | write/edit 后自动附 LSP 诊断 + linter 结果；`symbol_search` / `read_symbol` 等按符号读代码 |
+| `@plannotator/pi-extension` | `/plannotator-plan-mode` 计划模式 + 浏览器审阅 UI |
+
+## 🎯 Skills
 
 | Skill | 功能 |
 |-------|------|
 | `gencom` | 根据 git diff 生成符合项目风格的提交信息 |
-| `code-review-expert` | 资深工程师视角的代码审查（SOLID、安全、可维护性） |
-| `planning-with-files` | 文件化任务规划，追踪多步骤复杂任务进度 |
-| `skill-creator` | 创建、优化 skill，含 eval 基准评测与报告生成 |
-| `skill-monitor` | 监控 GitHub 仓库文件更新，生成变更摘要 |
-| `i-have-adhd` | ADHD 模式输出规则（先给动作、编号步骤、具体时间估计） |
-| `humanizer-zh` | 去除中文文本的 AI 写作痕迹 |
-| `naming` | 根据中文描述生成英文标识符（PascalCase） |
-| `todo-list` | 个人待办增删改查，支持多级项目嵌套 |
-| `init-agents-md` | 扫描项目结构并初始化项目级 AGENTS.md |
-| `add-anchor` | 为 Markdown 标题添加自定义锚点 |
-| `add-frontmatter` | 为 Markdown 文件添加 Frontmatter |
-| `find-skills` | 发现并安装可用的 agent skills |
-| `github-issue-creator` | 按仓库模板创建带标签的 GitHub Issue |
-| `pr-creator` | 按仓库模板创建 Pull Request |
-| `pr-address-comments` | 处理当前分支的 GitHub PR 评论 |
-| `grill-me-docs-standalone` | 需求不明确时向用户提问澄清 |
+| `code-review-expert` | 资深工程师视角的代码审查 |
+| `planning-with-files` | 文件化任务规划（脚本已移植为 bash） |
+| `skill-creator` | 创建、优化 skill，含 eval 评测 |
+| `skill-monitor` | 监控 GitHub 仓库文件更新（脚本已移植为 bash，定时用 systemd timer） |
+| `i-have-adhd` | ADHD 模式输出规则 |
+| `humanizer-zh` | 去除中文文本的 AI 痕迹 |
+| `naming` | 中文描述 → 英文标识符 |
+| `todo-list` | 个人待办增删改查（数据在 `~/.todo/`） |
+| `init-agents-md` | 扫描项目并初始化项目级 AGENTS.md |
+| `add-anchor` / `add-frontmatter` | Markdown 锚点 / Frontmatter |
+| `find-skills` | 发现并安装 agent skills |
+| `github-issue-creator` / `pr-creator` / `pr-address-comments` | GitHub Issue / PR / 评论处理 |
+| `grill-me-docs-standalone` | 需求不明确时反复追问澄清 |
 
-## ⚙️ 配置说明
+## ⚙️ 与 main（Windows 版）的差异
 
-### settings.json
+| 项 | main | linux |
+|---|---|---|
+| `defaultTools` | `powershell` | `bash` |
+| mcp.json chrome-devtools | `cmd /c npx … --autoConnect` | `npx … --isolated`（自己拉起 Chrome） |
+| AGENTS.md 环境声明 | Windows 11 / 无 Python | Linux / Python 3.12 / rg / jq / gh / uv |
+| 4 个 `.ps1` 脚本 | PowerShell | 移植为 bash（`planning-with-files` ×3、`skill-monitor` ×1） |
+| skill-monitor 定时 | schtasks XML | systemd user timer（附 cron 备选） |
+| `httpProxy` | `127.0.0.1:7897` | 移除（直连即可） |
+| 重试 | 8 次 / 10s | 3 次 / 3s |
+| `defaultThinkingLevel` | high | medium |
+| `compaction` | 关 | 开 |
+| `.i-have-adhd-always` | 存在（ADHD 常开） | 移除（按需 `/adhd`） |
+| 联网搜索 | tavily MCP | `pi-web-access`（tavily 保留为 MCP + 回退 provider） |
+| 新增扩展 | — | `pi-web-access`、`pi-subagents`、`pi-lens`、`@plannotator/pi-extension` |
+| 默认模型 | LinuxHub / deepseek | anthropic / claude-sonnet-4-5（`sub2api/deepseek-v4-flash` 备用） |
 
-| 配置项 | 说明 |
-|--------|------|
-| `lastChangelogVersion` | 已读过的版本更新日志版本（0.84.3） |
-| `theme` | 界面主题（cc-dark） |
-| `defaultProvider` / `defaultModel` | 默认 AI 提供商与模型（LinuxHub / deepseek-v4-flash-vision-exp） |
-| `defaultThinkingLevel` | 默认思考等级（high） |
-| `httpProxy` | HTTP 代理地址（127.0.0.1:7897） |
-| `packages` | 需要额外安装的 pi 包（见下方安装说明） |
-| `defaultTools` | 默认工具列表（read、powershell、edit、write） |
-| `retry` | 自动重试策略（最多 8 次，基础延迟 10s，provider 最大重试延迟 120s） |
-| `compaction` | 上下文压缩（已关闭） |
-| `hideThinkingBlock` | 隐藏思考过程 |
-| `showCacheMissNotices` | 缓存未命中提示 |
-| `quietStartup` | 静默启动 |
-| `tuiMode` | TUI 模式（regular） |
-| `fullscreenExitOutput` | 全屏模式退出时输出的内容（transcript） |
-| `markdown.mermaid` | Mermaid 图表渲染时机（final） |
+## 📝 已知事项
 
-### packages 安装
-
-`settings.json` 中配置的 `packages` 需要单独安装，在终端执行：
-
-```powershell
-pi install pi-mcp-adapter
-pi install @ff-labs/pi-fff
-pi install @juicesharp/rpiv-ask-user-question
-pi install @pi-unipi/notify
-pi install pi-cc-extensions
-pi install pi-rtk-optimizer
-pi install @juicesharp/rpiv-todo
-```
-
-各包功能：
-
-| 包名 | 说明 |
-|------|------|
-| `pi-mcp-adapter` | MCP 协议适配器 |
-| `@ff-labs/pi-fff` | ff 文件搜索工具（ffgrep / fffind） |
-| `@juicesharp/rpiv-ask-user-question` | 结构化提问（ask_user_question 工具） |
-| `@pi-unipi/notify` | 跨平台通知（notify_user 工具） |
-| `pi-cc-extensions` | Claude Code 风格 UI、上下文检查等生产力套件 |
-| `pi-rtk-optimizer` | RTK 命令重写与输出压缩优化（节省 token） |
-| `@juicesharp/rpiv-todo` | 个人待办管理（todo-list 增删改查） |
-
-### MCP 服务
-
-`mcp.json` 配置了以下 MCP 服务器：
-
-- **chrome-devtools** — Chrome DevTools 协议集成（通过 `npx chrome-devtools-mcp`）
-- **searchcode** — 公共代码搜索与分析
-- **tavily-remote-mcp** — 网络搜索（实时信息、新闻、事实）
-
-### models.json
-
-`models.json` 用于声明自定义 AI 提供商与模型，替代原有的 TypeScript 扩展方式。
-
-```json
-{
-  "providers": {
-    "ollama": { // 字段可修改为中转站名称,方便识别
-      "baseUrl": "http://xxx/v1", // 填写中转站域名
-      "api": "openai-completions", // 一般不用修改
-      "apiKey": "ollama", // 填写生成的key
-      "headers": { "user-agent": "Go-http-client/2.0" }, //部分要求指定UA,这里可以自定义配置
-      "models": [
-        {
-          "id": "deepseek-v4-flash", // 模型id
-          "name": "DSv4Flash", // 模型昵称,防止id过长显示不方便
-          "reasoning": true, // 是否支持思考,不支持就是false,支持就选true
-          "input": ["text"],
-          "compat": {
-            "supportsReasoningEffort": true,
-            "supportsDeveloperRole": false // 部分模型不支持Developer,所以要关闭(可选配置)
-          },
-          "contextWindow": 1000000, // 自行查询,现在模型都是1M了
-          "maxTokens": 64000, // 自行查询
-          "cost": {"input": 3,"output": 9,"cacheRead": 0.1,"cacheWrite": 0}, // API价格
-          "thinkingLevelMap": { "minimal": null, "low": null, "medium": null, "high": "high", "xhigh": "max" }, // 思考强度
-        }
-      ]
-    }
-  }
-}
-```
-
-## 📜 开发规范（AGENTS.md）
-
-`AGENTS.md` 是 AI 编码助手的行为准则，核心要点：
-
-- **语言**：所有输出使用简体中文
-- **编码原则**：先思考再编码、简洁优先、外科手术式修改、目标驱动执行
-- **工作流**：普通功能 → 编码 → 审查 → 提交；复杂功能先规划
-- **命令策略**：文件操作用专用工具，Git 只读操作自动执行，管理员/交互命令交用户执行
-- **自动代理**：代码审查 `code-review-expert`、复杂规划 `planning-with-files` 自动触发
-
-## 🚀 快速开始
-
-1. 克隆本仓库
-2. 安装依赖包（见上方 `packages 安装` 章节）
-3. 将 `settings.json`、`mcp.json` 放置在 pi 配置目录中
-4. 将 `AGENTS.md` 放置在`~\.pi\agent`目录作为 AI 行为全局准则
-5. 将需要的 skill 从 `skills/` 复制到 `~\.agents\skills`
+- `web-search.json` 放行了 `198.18.0.0/15`：某些代理的 fake-ip 模式会把外网域名解析到这个网段，`fetch_content` 的 SSRF 防护会拦，放行后正常。不用代理可删掉。
+- `pi-lens` 有自动安装外部 linter 的策略（gitleaks / trivy 等安全扫描是 opt-in，默认不装）。
+- `pi-subagents` 每个子代理是独立进程独立上下文，并行开多个 = 多倍 token。
 
 ## 感谢
 
-感谢 [LinuxDo 社区](https://linux.do/)对本项目的支持
+感谢 [LinuxDo 社区](https://linux.do/) 对本项目的支持。

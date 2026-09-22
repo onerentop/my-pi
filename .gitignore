@@ -1,1 +1,10 @@
+# pi 运行时状态，不入库
+auth.json
+models-store.json
+mcp-cache.json
+mcp-npx-cache.json
+npm/
+fff/
+sessions/
+.i-have-adhd-always
 extensions/zvision.ts
