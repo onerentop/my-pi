@@ -67,6 +67,16 @@
 - 系统管理命令（需要 `sudo` 的操作）
 - 破坏性文件操作 shell 命令（`rm -rf`、`mv` 覆盖、`curl` 下载覆盖等）
 
+### 进程管理（孤儿进程陷阱）
+
+POSIX shell 的 `kill $!` / `kill <pid>` **只作用于你指定的那一个 PID，不杀进程组**。用 `&` 或脚本拉起的后台进程，会在父进程退出后被 init 收养、继续占用终端和端口 —— 表现为“命令跑完就卡住、不继续、也没结束提示”。
+
+- **杀进程树用进程组**：`kill -TERM -- -<pgid>`（**负号是关键**，杀整个进程组），不听话再 `kill -KILL -- -<pgid>`。单个 PID 的子孙用 `pkill -P <pid>`；先 `pstree -p <pid>` 看清层次再动手，避免误伤。
+- 长驻进程用 `setsid <cmd> &` 或 `nohup setsid <cmd> &` 启动，让它们独立成组，不随终端退出而胡挠。
+- **不得在活动的 pi 会话里启动第二个交互式 pi**（比如 `pi` 或 `pi -c`）。两个进程抢同一控制台，父进程一被杀子进程就成孤儿。
+- 需要验证 TUI 类程序时，按安全性从高到低选：① 只验模块能不能解析（`node -e "import('包名')"`）；② 重定向 stdin（`' ' | pi --no-session`）；③ `timeout 10 pi --no-session` 加超时兜底。
+- 排查孤儿：`ps -eo pid,ppid,tty,cmd | awk '$2==1'`（PPID 为 1 = 已被 init 收养），或 `pgrep -a node`。
+
 ## 核心工作流
 
 ### 普通功能

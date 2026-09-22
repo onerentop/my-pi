@@ -1,12 +1,13 @@
 # 🧠 my-pi（Linux 分支）
 
-个人 [pi](https://pi.dev) 编码智能体配置仓库 —— **Linux 版**。`main` 分支是 Windows/PowerShell 版；本分支把所有平台相关的部分改成了 bash / Linux 事实，并加了一批扩展。
+个人 [pi](https://pi.dev) 编码智能体配置仓库 —— **Linux 版**。`windows` 分支是最新的 Windows 版（相同的 11 个包 + 17 个 skill，只有平台相关的部分不同），`main` 是早期的 Windows 配置；本分支把所有平台相关的部分做成 bash / Linux 事实。
 
 ## 📦 目录结构
 
 ```
 .
 ├── AGENTS.md              # 全局行为准则（语言、编码原则、工作流、工具使用策略）
+├── APPEND_SYSTEM.md       # 追加到 system prompt 的内容（人设 / 输出风格）
 ├── settings.json          # pi 核心设置（主题、包列表、重试、压缩、默认模型等）
 ├── models.json            # 自定义 provider（key 用 $ENV 占位，见下）
 ├── mcp.json               # MCP 服务器（chrome-devtools / searchcode / tavily）
@@ -37,11 +38,14 @@ npm install -g --ignore-scripts @earendil-works/pi-coding-agent
 git clone -b linux https://github.com/onerentop/my-pi.git
 cd my-pi
 mkdir -p ~/.pi/agent ~/.agents/skills
-cp settings.json models.json mcp.json web-search.json pi-cc-extensions.json AGENTS.md ~/.pi/agent/
-cp -a extensions ~/.pi/agent/
+cp settings.json models.json mcp.json web-search.json pi-cc-extensions.json AGENTS.md APPEND_SYSTEM.md ~/.pi/agent/
+mkdir -p ~/.pi/agent/extensions ~/.agents/skills
+cp -a extensions/. ~/.pi/agent/extensions/
 cp -a skills/* ~/.agents/skills/
 chmod 600 ~/.pi/agent/models.json
 ```
+
+> `extensions/` 用 `cp -a extensions/. 目标/` 而不是 `cp -a extensions 目标/` —— 后者在目标目录已存在时会把源目录整个嵌进去（得到 `extensions/extensions/`）。
 
 ### 3. 填 key
 
@@ -58,9 +62,9 @@ echo 'export TAVILY_API_KEY=tvly-...'       >> ~/.bashrc   # tavily MCP + pi-web
 
 > ⚠️ `anthropic` provider **必须**带 `apiKey`（哪怕是 `$VAR`）。只给 `baseUrl` 会导致没有该环境变量的终端里 `/model` 中所有 Claude 模型不可选。
 
-### 4. 装扩展包
+### 4. 扩展包会自动装
 
-`settings.json` 里 `packages` 列了 11 个包，逐个安装：
+`settings.json` 里 `packages` 列了 11 个包。**首次启动 pi 时它会自己检测并 `npm install` 掉缺失的包**。所以第 2 步拷完配置就能直接用，第一次 `pi` 启动会静默补齐。想当场看到安装过程（或怀疑某个包没装上），也可以手动逐个装 —— 这个操作是幂等的，`addSourceToSettings` 发现条目已存在会直接返回，不会把 `packages` 数组写重复：
 
 ```bash
 pi install npm:pi-mcp-adapter
@@ -125,7 +129,7 @@ sudo apt install libnotify-bin
 | `github-issue-creator` / `pr-creator` / `pr-address-comments` | GitHub Issue / PR / 评论处理 |
 | `grill-me-docs-standalone` | 需求不明确时反复追问澄清 |
 
-## ⚙️ 与 main（Windows 版）的差异
+## ⚙️ 与 Windows 版（`windows` / `main`）的差异
 
 | 项 | main | linux |
 |---|---|---|
@@ -145,6 +149,10 @@ sudo apt install libnotify-bin
 
 ## 📝 已知事项
 
+- **`models.json` 里两个 provider 的 `baseUrl` 都指向私有中转 `https://sub2api.topren.top`。** 这是配置作者的转发服务，不是公开端点。换台机器要么改掉这两处 `baseUrl`（官方 Anthropic 写 `https://api.anthropic.com`），要么就没有 key 可用 —— 填了 `$ENV` 同样会 401/404。
+- **`~/.pi/agent/extensions/model-router/` 不在本仓库。** 那是本机的另一个扩展：每次输入先用分类模型判断该走「只读规划」还是「直接执行」。它的 `config.json` 里硬编码了 provider 名，必须与 `models.json` 的 provider 名保持一致（曾因为改名报过 `未找到模型` + `分类失败，已使用 Terra`），耦合太紧所以不随库分发。要迁移就把整个目录拷过去，并核对 `provider` 字段。
+- **`superpowers` 系列 12 个 skill 不在本仓库。** 它们属于另一个项目，本机是以目录链接挂进 `~/.agents/skills/` 的。需要就单独装，或把它的 skills 目录写进 `settings.json` 的 `skills` 数组。
+- **杀进程树要用进程组。** `kill <pid>` 只作用于那一个 PID，不杀子孙 —— 用 `&` 拉起的后台进程会在父进程退出后被 init 收养、继续占用终端和端口，表现为「命令跑完就卡住不继续」。正解：`kill -TERM -- -<pgid>`（**负号是关键**），或用 `setsid` 启动长驻进程。**不要在活动的 pi 会话里再起一个交互式 pi** —— 两个进程抢同一终端，父进程一被杀子进程就成孤儿。完整规范（含验证 TUI 类程序的安全做法）写在 `AGENTS.md` 的「进程管理」一节。
 - `web-search.json` 放行了 `198.18.0.0/15`：某些代理的 fake-ip 模式会把外网域名解析到这个网段，`fetch_content` 的 SSRF 防护会拦，放行后正常。不用代理可删掉。
 - `pi-lens` 有自动安装外部 linter 的策略（gitleaks / trivy 等安全扫描是 opt-in，默认不装）。
 - `pi-subagents` 每个子代理是独立进程独立上下文，并行开多个 = 多倍 token。
